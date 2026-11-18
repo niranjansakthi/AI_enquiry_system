@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Enquiry Management | Curd Rice Business Studio{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.25rem;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <h1 class="page-title" style="margin-bottom: 0;">Enquiry Management</h1>
+      <span style="background: #e0f2fe; color: #0369a1; font-size: 0.78rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px;">
+        {{ enquiries|length }} Total
+      </span>
+    </div>
+    <p class="page-subtitle" style="margin-bottom: 0; margin-top: 0.25rem;">Browse, search, and inspect incoming business leads</p>
+  </div>
+  <div style="display: flex; gap: 0.75rem;">
+    <a href="/upload-csv" class="btn-quick-outline" style="padding: 0.55rem 0.9rem; font-size: 0.85rem;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+      Upload CSV
+    </a>
+    <a href="/enquiries/new" class="btn-quick-teal" style="padding: 0.55rem 0.9rem; font-size: 0.85rem;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      + New Enquiry
+    </a>
+  </div>
+</div>
+
+<div class="dashboard-card" style="padding: 0; overflow: hidden;">
+  <!-- Filter & Search Toolbar -->
+  <form method="GET" action="/enquiries" style="display: flex; gap: 0.75rem; flex-wrap: wrap; padding: 1.1rem 1.4rem; background: #fafbfc; border-bottom: 1px solid #f3f4f6; align-items: center;">
+    <div style="position: relative; flex: 1; min-width: 240px;">
+      <input type="text" name="search" placeholder="Search message, customer, company..." value="{{ search_query }}" 
+             style="width: 100%; padding: 0.55rem 0.85rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.86rem; background: #fff;" />
+    </div>
+
+    <select name="status" style="padding: 0.55rem 0.85rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.86rem; background: #fff; max-width: 160px;">
+      <option value="">All Statuses</option>
+      <option value="COMPLETED" {% if selected_status == 'COMPLETED' %}selected{% endif %}>Completed</option>
+      <option value="NEEDS_REVIEW" {% if selected_status == 'NEEDS_REVIEW' %}selected{% endif %}>Needs Review</option>
+      <option value="PROCESSING" {% if selected_status == 'PROCESSING' %}selected{% endif %}>Processing</option>
+      <option value="PENDING" {% if selected_status == 'PENDING' %}selected{% endif %}>Pending</option>
+      <option value="FAILED" {% if selected_status == 'FAILED' %}selected{% endif %}>Failed</option>
+    </select>
+
+    <select name="priority" style="padding: 0.55rem 0.85rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.86rem; background: #fff; max-width: 150px;">
+      <option value="">All Priorities</option>
+      <option value="High" {% if selected_priority == 'High' %}selected{% endif %}>High</option>
+      <option value="Medium" {% if selected_priority == 'Medium' %}selected{% endif %}>Medium</option>
+      <option value="Low" {% if selected_priority == 'Low' %}selected{% endif %}>Low</option>
+    </select>
+
+    <select name="category" style="padding: 0.55rem 0.85rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.86rem; background: #fff; max-width: 200px;">
+      <option value="">All Categories</option>
+      {% for cat in categories %}
+        <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+
+    <button type="submit" class="btn-quick-teal" style="padding: 0.55rem 1rem; font-size: 0.86rem; border: none;">Filter</button>
+    {% if search_query or selected_status or selected_priority or selected_category %}
+      <a href="/enquiries" class="btn-quick-outline" style="padding: 0.55rem 0.85rem; font-size: 0.86rem;">Reset</a>
+    {% endif %}
+  </form>
+
+  <!-- Table -->
+  {% if enquiries %}
+    <div style="overflow-x: auto;">
+      <table class="custom-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th style="width: 85px;">ID</th>
+            <th style="width: 170px;">Customer</th>
+            <th>Enquiry Message</th>
+            <th style="width: 150px;">Category</th>
+            <th style="width: 90px;">Priority</th>
+            <th style="width: 75px;">Score</th>
+            <th style="width: 120px;">Status</th>
+            <th style="width: 95px;">Source</th>
+            <th style="width: 80px; text-align: right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for enq in enquiries %}
+            <tr>
+              <td class="cell-id">
+                <a href="/enquiries/{{ enq.id }}" style="text-decoration:none; color:inherit; font-weight: 700;">
+                  #EQ-{{ "%03d"|format(enq.id) }}
+                </a>
+              </td>
+              <td class="cell-customer">
+                <div>{{ enq.customer_name or "Anonymous" }}</div>
+                {% if enq.company_name or enq.email %}
+                  <div style="font-size: 0.72rem; color: #9ca3af; font-weight: 400; margin-top: 0.1rem;">
+                    {{ enq.company_name or enq.email }}
+                  </div>
+                {% endif %}
+              </td>
+              <td style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #4b5563;" title="{{ enq.message }}">
+                {{ enq.message }}
+              </td>
+              <td style="font-weight: 500; font-size: 0.84rem;">
+                {{ enq.analysis.category if enq.analysis else "—" }}
+              </td>
+              <td>
+                {% if enq.analysis and enq.analysis.priority %}
+                  <span class="badge-priority {{ enq.analysis.priority.lower() }}">{{ enq.analysis.priority }}</span>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="cell-score">
+                {% if enq.analysis and enq.analysis.lead_score is not none %}
+                  {{ enq.analysis.lead_score }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td>
+                {% if enq.processing_status == 'COMPLETED' %}
+                  <span class="badge-status completed">Completed</span>
+                {% elif enq.processing_status == 'NEEDS_REVIEW' %}
+                  <span class="badge-status needs-review">Needs Review</span>
+                {% else %}
+                  <span class="badge-status pending-review">{{ enq.processing_status }}</span>
+                {% endif %}
+              </td>
+              <td style="text-transform: capitalize; font-size: 0.78rem; color: #6b7280;">
+                {{ enq.source.replace('_', ' ') }}
+              </td>
+              <td style="text-align: right;">
+                <a href="/enquiries/{{ enq.id }}" class="btn-quick-outline" style="padding: 0.3rem 0.65rem; font-size: 0.76rem; display: inline-flex; white-space: nowrap;">
+                  Inspect &rarr;
+                </a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div style="padding: 3.5rem 1.5rem; text-align: center; color: #6b7280;">
+      <div style="font-size: 2rem; margin-bottom: 0.5rem;">🔍</div>
+      <h3 style="color: #111827; font-size: 1.1rem; font-weight: 700; margin-bottom: 0.25rem;">No enquiries found</h3>
+      <p style="font-size: 0.88rem; color: #6b7280;">
+        {% if search_query or selected_status or selected_priority or selected_category %}
+          No enquiries match the current filter criteria. Try resetting the filters.
+        {% else %}
+          No enquiries have been submitted yet.
+        {% endif %}
+      </p>
+      {% if search_query or selected_status or selected_priority or selected_category %}
+        <div style="margin-top: 1rem;">
+          <a href="/enquiries" class="btn-quick-outline" style="display: inline-flex; font-size: 0.85rem;">Clear Filters</a>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

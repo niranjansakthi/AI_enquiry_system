@@ -1,0 +1,14 @@
+id,customer_name,company_name,email,message,source
+001,,,,"We are a jewellery business looking for an AI-powered WhatsApp customer support system.",csv_upload
+002,,,,"Need a website for our manufacturing company. Budget is 2 lakh. Can we discuss this week?",csv_upload
+003,,,,"What services do you offer?",csv_upload
+004,,,,"We want to automate our inventory and dispatch operations.",csv_upload
+005,,,,"Looking for a digital marketing internship.",csv_upload
+006,,,,"We are interested in developing an ERP system for our silver jewellery business.",csv_upload
+007,,,,"Your services look interesting. Please send your pricing details.",csv_upload
+008,,,,"Need AI automation for handling 500 customer enquiries per day. We want to start immediately.",csv_upload
+009,,,,"I am a student looking for a college project opportunity.",csv_upload
+010,,,,"We need an AI assistant that can read documents and answer questions from our internal company data.",csv_upload
+011,,,,"I want to partner with your company for a business opportunity.",csv_upload
+012,,,,"I am unhappy with the service received and need someone to call me urgently.",csv_upload
+

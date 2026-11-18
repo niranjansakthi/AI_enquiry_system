@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+
+{% block title %}Business Enquiry Dashboard | Curd Rice Business Studio{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Business Enquiry Dashboard</h1>
+<p class="page-subtitle">AI-powered enquiry automation for smarter lead management</p>
+
+<!-- ──────────────── KPI STAT CARDS (4 COLUMNS - REAL BACKEND METRICS) ──────────────── -->
+<div class="kpi-grid">
+  <!-- Card 1: Total Enquiries -->
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon blue">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      </div>
+      <div class="kpi-label">Total Enquiries</div>
+    </div>
+    <div class="kpi-value">{{ stats.total_enquiries }}</div>
+    <div class="kpi-bottom">
+      <div class="kpi-trend green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        Active
+      </div>
+      <svg class="kpi-sparkline" viewBox="0 0 90 28" fill="none">
+        <path d="M2 24 C 20 22, 35 12, 50 14 C 65 16, 75 8, 88 10" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card 2: High Priority -->
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon orange">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+      </div>
+      <div class="kpi-label">High Priority</div>
+    </div>
+    <div class="kpi-value">{{ stats.priority.high }}</div>
+    <div class="kpi-bottom">
+      <div class="kpi-trend green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        Scored
+      </div>
+      <svg class="kpi-sparkline" viewBox="0 0 90 28" fill="none">
+        <path d="M2 24 C 25 24, 40 20, 55 14 C 70 8, 80 4, 88 3" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card 3: Pending Review -->
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon amber">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      </div>
+      <div class="kpi-label">Pending Review</div>
+    </div>
+    <div class="kpi-value">{{ stats.pending_human_reviews }}</div>
+    <div class="kpi-bottom">
+      <div class="kpi-trend green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        Action required
+      </div>
+      <svg class="kpi-sparkline" viewBox="0 0 90 28" fill="none">
+        <path d="M2 25 C 20 25, 40 24, 55 20 C 70 16, 78 8, 88 7" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Card 4: Approved Drafts -->
+  <div class="kpi-card">
+    <div class="kpi-header">
+      <div class="kpi-icon green">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      </div>
+      <div class="kpi-label">Approved Drafts</div>
+    </div>
+    <div class="kpi-value">{{ stats.approved_drafts }}</div>
+    <div class="kpi-bottom">
+      <div class="kpi-trend green">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        Reviewed
+      </div>
+      <svg class="kpi-sparkline" viewBox="0 0 90 28" fill="none">
+        <path d="M2 24 C 20 24, 38 22, 50 18 C 65 14, 75 7, 88 5" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<!-- ──────────────── MIDDLE SECTION: DYNAMIC VISUALIZATIONS & ACTIONS ──────────────── -->
+<div class="middle-grid">
+  <!-- 1. Real Donut Chart Based on DB Distribution -->
+  <div class="dashboard-card">
+    <div class="card-heading">Lead Overview</div>
+    <div class="donut-container">
+      <div class="donut-chart-box">
+        {% set total_val = stats.total_enquiries if stats.total_enquiries > 0 else 1 %}
+        {% set high_pct = ((stats.priority.high / total_val) * 100)|round|int %}
+        {% set med_pct = ((stats.priority.medium / total_val) * 100)|round|int %}
+        {% set low_pct = ((stats.priority.low / total_val) * 100)|round|int %}
+        <svg viewBox="0 0 36 36" style="width: 100%; height: 100%; transform: rotate(-90deg);">
+          <circle cx="18" cy="18" r="14" fill="none" stroke="#f3f4f6" stroke-width="5" />
+          
+          <!-- High Priority (Green) -->
+          <circle cx="18" cy="18" r="14" fill="none" stroke="#00a884" stroke-width="5"
+                  stroke-dasharray="{{ high_pct }} {{ 100 - high_pct }}" stroke-dashoffset="0" />
+          
+          <!-- Medium Priority (Orange) -->
+          <circle cx="18" cy="18" r="14" fill="none" stroke="#f59e0b" stroke-width="5"
+                  stroke-dasharray="{{ med_pct }} {{ 100 - med_pct }}" stroke-dashoffset="-{{ high_pct }}" />
+          
+          <!-- Low Priority (Blue) -->
+          <circle cx="18" cy="18" r="14" fill="none" stroke="#3b82f6" stroke-width="5"
+                  stroke-dasharray="{{ low_pct }} {{ 100 - low_pct }}" stroke-dashoffset="-{{ high_pct + med_pct }}" />
+        </svg>
+        <div class="donut-center-text">
+          <div class="donut-total-num">{{ stats.total_enquiries }}</div>
+          <div class="donut-total-label">Total</div>
+        </div>
+      </div>
+
+      <div class="donut-legend">
+        <div class="legend-item">
+          <div class="legend-label">
+            <span class="legend-dot" style="background-color: #00a884;"></span>
+            High Priority
+          </div>
+          <div class="legend-count">{{ stats.priority.high }}</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-label">
+            <span class="legend-dot" style="background-color: #f59e0b;"></span>
+            Medium Priority
+          </div>
+          <div class="legend-count">{{ stats.priority.medium }}</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-label">
+            <span class="legend-dot" style="background-color: #3b82f6;"></span>
+            Low Priority
+          </div>
+          <div class="legend-count">{{ stats.priority.low }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Dynamic Category Bar Chart from Backend -->
+  <div class="dashboard-card">
+    <div class="card-heading">Enquiry Categories</div>
+    <div class="barchart-container">
+      {% set ns = namespace(max_count=5) %}
+      {% for c, count in stats.category_breakdown.items() %}
+        {% if count > ns.max_count %}{% set ns.max_count = count %}{% endif %}
+      {% endfor %}
+      {% set max_count = ns.max_count %}
+
+      <div class="barchart-plot">
+        <!-- AI Automation -->
+        {% set ai_count = stats.category_breakdown.get('AI Automation', 0) %}
+        <div class="bar-column">
+          <span class="bar-val">{{ ai_count }}</span>
+          <div class="bar-fill" style="height: {{ (ai_count / max_count * 105)|round|int + 15 }}px; background-color: #008779;"></div>
+        </div>
+
+        <!-- Web Development -->
+        {% set web_count = stats.category_breakdown.get('Website Development', 0) %}
+        <div class="bar-column">
+          <span class="bar-val">{{ web_count }}</span>
+          <div class="bar-fill" style="height: {{ (web_count / max_count * 105)|round|int + 15 }}px; background-color: #38bdf8;"></div>
+        </div>
+
+        <!-- App Development / Consulting -->
+        {% set app_count = stats.category_breakdown.get('Application Development', 0) + stats.category_breakdown.get('Business Consulting', 0) %}
+        <div class="bar-column">
+          <span class="bar-val">{{ app_count }}</span>
+          <div class="bar-fill" style="height: {{ (app_count / max_count * 105)|round|int + 15 }}px; background-color: #6366f1;"></div>
+        </div>
+
+        <!-- General Enquiry -->
+        {% set gen_count = stats.category_breakdown.get('General Enquiry', 0) %}
+        <div class="bar-column">
+          <span class="bar-val">{{ gen_count }}</span>
+          <div class="bar-fill" style="height: {{ (gen_count / max_count * 105)|round|int + 15 }}px; background-color: #f59e0b;"></div>
+        </div>
+
+        <!-- Other / Escalations -->
+        {% set other_count = stats.category_breakdown.get('Job and Internship Application', 0) + stats.category_breakdown.get('Complaint', 0) + stats.category_breakdown.get('Partnership', 0) + stats.category_breakdown.get('Other', 0) %}
+        <div class="bar-column">
+          <span class="bar-val">{{ other_count }}</span>
+          <div class="bar-fill" style="height: {{ (other_count / max_count * 105)|round|int + 15 }}px; background-color: #a3e635;"></div>
+        </div>
+      </div>
+      <div class="bar-labels">
+        <div class="bar-label-item">AI<br>Automation</div>
+        <div class="bar-label-item">Web<br>Dev</div>
+        <div class="bar-label-item">Apps /<br>Consulting</div>
+        <div class="bar-label-item">General<br>Enquiry</div>
+        <div class="bar-label-item">Review /<br>Other</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Quick Actions -->
+  <div class="dashboard-card">
+    <div class="card-heading">Quick Actions</div>
+    <div class="action-buttons-group">
+      <a href="/upload-csv" class="btn-quick-teal">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Upload CSV File
+      </a>
+      <a href="/enquiries/new" class="btn-quick-outline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Submit New Enquiry
+      </a>
+      <a href="/analytics" class="btn-quick-outline">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        View Analytics
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ──────────────── BOTTOM SECTION: ACTUAL RECENT ENQUIRIES & RECENT REAL EVENTS ──────────────── -->
+<div class="bottom-grid">
+  <!-- Recent Enquiries Table (Real DB Records) -->
+  <div class="dashboard-card">
+    <div class="table-header-row">
+      <div class="card-heading" style="margin-bottom: 0;">Recent Enquiries</div>
+      <a href="/enquiries" class="view-all-link">
+        View All &rarr;
+      </a>
+    </div>
+
+    {% if recent_enquiries %}
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Customer</th>
+          <th>Category</th>
+          <th>Priority</th>
+          <th>Score</th>
+          <th>Status</th>
+          <th>Submitted</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for enq in recent_enquiries[:5] %}
+          <tr>
+            <td class="cell-id">
+              <a href="/enquiries/{{ enq.id }}" style="text-decoration:none; color:inherit; font-weight: 700;">
+                #EQ-{{ "%03d"|format(enq.id) }}
+              </a>
+            </td>
+            <td class="cell-customer">
+              <div>{{ enq.customer_name or "Anonymous" }}</div>
+              {% if enq.company_name %}
+                <div style="font-size: 0.72rem; color: #9ca3af; font-weight: 400;">{{ enq.company_name }}</div>
+              {% endif %}
+            </td>
+            <td>
+              {{ enq.analysis.category if enq.analysis else "Processing" }}
+            </td>
+            <td>
+              {% if enq.analysis and enq.analysis.priority %}
+                <span class="badge-priority {{ enq.analysis.priority.lower() }}">{{ enq.analysis.priority }}</span>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td class="cell-score">
+              {{ enq.analysis.lead_score if (enq.analysis and enq.analysis.lead_score is not none) else "—" }}
+            </td>
+            <td>
+              {% if enq.processing_status == 'COMPLETED' %}
+                <span class="badge-status completed">Completed</span>
+              {% elif enq.processing_status == 'NEEDS_REVIEW' %}
+                <span class="badge-status needs-review">Needs Review</span>
+              {% else %}
+                <span class="badge-status pending-review">{{ enq.processing_status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ enq.created_at.strftime('%I:%M %p') }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+      <div style="padding: 2rem; text-align: center; color: #9ca3af;">No enquiries recorded yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- Real Stored Activity Feed & Commitment Box -->
+  <div class="dashboard-card">
+    <div class="card-heading">Recent Activity</div>
+
+    <div class="activity-list">
+      {% for enq in recent_enquiries[:4] %}
+        <div class="activity-item">
+          {% if enq.analysis and enq.analysis.requires_human_review %}
+            <span class="activity-bullet orange"></span>
+            <div class="activity-details">
+              <div class="activity-title">
+                <span>Requires human review</span>
+                <span class="activity-time">{{ enq.created_at.strftime('%I:%M %p') }}</span>
+              </div>
+              <div class="activity-sub">EQ-{{ "%03d"|format(enq.id) }} • {{ enq.analysis.review_reason or "Escalation flagged" }}</div>
+            </div>
+          {% elif enq.draft and enq.draft.approval_status == 'APPROVED' %}
+            <span class="activity-bullet blue"></span>
+            <div class="activity-details">
+              <div class="activity-title">
+                <span>Draft approved</span>
+                <span class="activity-time">{{ enq.created_at.strftime('%I:%M %p') }}</span>
+              </div>
+              <div class="activity-sub">EQ-{{ "%03d"|format(enq.id) }} • Approved for response</div>
+            </div>
+          {% else %}
+            <span class="activity-bullet green"></span>
+            <div class="activity-details">
+              <div class="activity-title">
+                <span>Enquiry processed</span>
+                <span class="activity-time">{{ enq.created_at.strftime('%I:%M %p') }}</span>
+              </div>
+              <div class="activity-sub">EQ-{{ "%03d"|format(enq.id) }} • {{ enq.analysis.priority if enq.analysis else "Scored" }} lead (Score: {{ enq.analysis.lead_score if enq.analysis else 0 }})</div>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Commitment Card -->
+    <div class="commitment-card">
+      <div class="commitment-icon">💡</div>
+      <div>
+        <div class="commitment-heading">Our Commitment</div>
+        <div class="commitment-text">Turning business enquiries into real opportunities with the power of AI.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

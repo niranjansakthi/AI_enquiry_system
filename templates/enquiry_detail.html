@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Enquiry Details #{{ "%03d"|format(enquiry.id) }} | Curd Rice Business Studio{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+  <div>
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <h1 class="page-title" style="margin-bottom: 0;">Enquiry #EQ-{{ "%03d"|format(enquiry.id) }}</h1>
+      {% if enquiry.processing_status == 'COMPLETED' %}
+        <span class="badge-status completed">Completed</span>
+      {% elif enquiry.processing_status == 'NEEDS_REVIEW' %}
+        <span class="badge-status needs-review">Needs Review</span>
+      {% else %}
+        <span class="badge-status pending-review">{{ enquiry.processing_status }}</span>
+      {% endif %}
+
+      {% if analysis and analysis.requires_human_review %}
+        <span class="badge-status needs-review" style="font-weight: 700;">⚠️ Escalated Attention</span>
+      {% endif %}
+    </div>
+    <p class="page-subtitle" style="margin-bottom: 0; margin-top: 0.25rem;">
+      Received on {{ enquiry.created_at.strftime('%b %d, %Y at %I:%M %p') }} via <strong style="text-transform: capitalize;">{{ enquiry.source.replace('_', ' ') }}</strong>
+    </p>
+  </div>
+  <div>
+    <a href="/enquiries" class="btn-quick-outline">&larr; Back to Enquiries</a>
+  </div>
+</div>
+
+<div class="middle-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+  <!-- LEFT COLUMN: Customer Message & AI Extracted Analytics -->
+  <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+    <!-- Customer Details Card -->
+    <div class="dashboard-card">
+      <div class="card-heading">Customer Information</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.75rem;">
+        <div>
+          <div style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Customer Name</div>
+          <div style="font-size: 0.95rem; font-weight: 600; color: #111827;">{{ enquiry.customer_name or "Not provided" }}</div>
+        </div>
+        <div>
+          <div style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Company</div>
+          <div style="font-size: 0.95rem; font-weight: 600; color: #111827;">{{ enquiry.company_name or "Not provided" }}</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Email Address</div>
+        <div style="font-size: 0.92rem; color: #374151;">{{ enquiry.email or "Not provided" }}</div>
+      </div>
+      <div style="margin-top: 1rem;">
+        <div style="font-size: 0.75rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 0.35rem;">Customer Message</div>
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 0.85rem; border-radius: 8px; font-size: 0.9rem; line-height: 1.5; color: #1f2937;">
+          {{ enquiry.message }}
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Intelligence & Lead Scoring Breakdown -->
+    <div class="dashboard-card">
+      <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center;">
+        <span>AI Analysis & Lead Score</span>
+        {% if analysis and analysis.priority %}
+          <span class="badge-priority {{ analysis.priority.lower() }}">{{ analysis.priority }} Priority</span>
+        {% endif %}
+      </div>
+
+      {% if analysis %}
+        <div style="display: flex; align-items: center; justify-content: space-between; background: #f9fafb; padding: 0.85rem 1.25rem; border-radius: 8px; border: 1px solid #e5e7eb; margin-bottom: 1rem;">
+          <div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase;">Lead Score</div>
+            <div style="font-size: 1.75rem; font-weight: 800; color: #111827;">
+              {{ analysis.lead_score }} <span style="font-size: 0.85rem; font-weight: 500; color: #9ca3af;">/ 100</span>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 700; text-transform: uppercase;">Category</div>
+            <div style="font-size: 1.05rem; font-weight: 700; color: #008779;">{{ analysis.category }}</div>
+            <div style="font-size: 0.75rem; color: #6b7280;">{{ (analysis.confidence * 100)|round|int }}% Confidence</div>
+          </div>
+        </div>
+
+        {% if analysis.requires_human_review %}
+          <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0 6px 6px 0; margin-bottom: 1rem;">
+            <div style="font-size: 0.82rem; font-weight: 700; color: #b91c1c;">Escalation Reason:</div>
+            <div style="font-size: 0.84rem; color: #991b1b;">{{ analysis.review_reason or "Flagged by policy rules" }}</div>
+          </div>
+        {% endif %}
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.88rem;">
+          <div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Extracted Requirement</div>
+            <div style="color: #1f2937; margin-top: 0.15rem;">{{ analysis.requirement or "None extracted" }}</div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Extracted Budget</div>
+              <div style="color: #1f2937; margin-top: 0.15rem;">{{ analysis.budget or "None mentioned" }}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Expected Timeline</div>
+              <div style="color: #1f2937; margin-top: 0.15rem;">{{ analysis.expected_timeline or "None mentioned" }}</div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase;">Intent</div>
+            <div style="color: #1f2937; margin-top: 0.15rem;">{{ analysis.intent or "Not determined" }}</div>
+          </div>
+
+          <div style="margin-top: 0.5rem;">
+            <div style="font-size: 0.72rem; color: #6b7280; font-weight: 600; text-transform: uppercase; margin-bottom: 0.35rem;">Deterministic Python Scoring Rules</div>
+            <ul style="padding-left: 1.25rem; font-size: 0.82rem; color: #4b5563; line-height: 1.5;">
+              {% for reason in analysis.scoring_reasons_list %}
+                <li>{{ reason }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      {% else %}
+        <p style="color: #9ca3af; font-size: 0.88rem;">No analysis generated yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: AI Response Draft & Action Controls -->
+  <div class="dashboard-card" style="height: fit-content;">
+    <div class="card-heading" style="display: flex; justify-content: space-between; align-items: center;">
+      <span>AI Email Response Draft</span>
+      {% if draft %}
+        {% if draft.approval_status == 'APPROVED' %}
+          <span class="badge-status completed">Approved</span>
+        {% elif draft.approval_status == 'REJECTED' %}
+          <span class="badge-status needs-review">Rejected</span>
+        {% elif draft.approval_status == 'NEEDS_FOLLOWUP' %}
+          <span class="badge-status pending-review">Needs Followup</span>
+        {% else %}
+          <span class="badge-status pending-review">Pending Decision</span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if draft %}
+      <form method="POST" action="/drafts/{{ draft.id }}/action">
+        <div style="margin-bottom: 1rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #374151; margin-bottom: 0.35rem;">Subject Line</label>
+          <input type="text" name="subject" value="{{ draft.subject }}" required 
+                 style="width: 100%; padding: 0.55rem 0.8rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem;" />
+        </div>
+
+        <div style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.82rem; font-weight: 700; color: #374151; margin-bottom: 0.35rem;">Email Body (Editable)</label>
+          <textarea name="body" rows="12" required 
+                    style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.88rem; line-height: 1.6; font-family: inherit;">{{ draft.body }}</textarea>
+        </div>
+
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; padding: 1rem; border-radius: 8px;">
+          <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #6b7280; margin-bottom: 0.65rem;">
+            Human Review Decision
+          </div>
+          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+            <button type="submit" name="action" value="approve" class="btn-quick-teal" style="padding: 0.5rem 0.85rem; font-size: 0.84rem; border: none;">
+              ✓ Approve Draft
+            </button>
+            <button type="submit" name="action" value="reject" onclick="return confirm('Are you sure you want to reject this response draft?')" class="btn-quick-outline" style="padding: 0.5rem 0.85rem; font-size: 0.84rem; color: #dc2626; border-color: #fca5a5;">
+              ✗ Reject Draft
+            </button>
+            <button type="submit" name="action" value="flag" class="btn-quick-outline" style="padding: 0.5rem 0.85rem; font-size: 0.84rem; color: #d97706; border-color: #fcd34d;">
+              ⚑ Needs Follow-up
+            </button>
+            <button type="submit" name="action" value="save" class="btn-quick-outline" style="padding: 0.5rem 0.85rem; font-size: 0.84rem;">
+              Save Edits
+            </button>
+          </div>
+        </div>
+      </form>
+    {% else %}
+      <div style="text-align: center; padding: 3rem 1rem; color: #9ca3af;">
+        No email draft generated for this enquiry.
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

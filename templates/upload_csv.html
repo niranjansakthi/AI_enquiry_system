@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Upload CSV | Curd Rice Business Studio{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Upload Enquiry CSV</h1>
+<p class="page-subtitle">Batch process customer enquiries through the AI pipeline</p>
+
+{% if error %}
+<div style="background-color: #fee2e2; border: 1px solid #f87171; color: #b91c1c; padding: 0.9rem 1.15rem; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.88rem;">
+  <strong>Error:</strong> {{ error }}
+</div>
+{% endif %}
+
+{% if result %}
+<div style="background-color: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
+  <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.35rem;">Batch Processing Complete!</div>
+  <div style="font-size: 0.88rem;">
+    Successfully processed <strong>{{ result.processed }}</strong> enquiries. Skipped / failed: <strong>{{ result.failed }}</strong>.
+  </div>
+</div>
+
+{% if result.processed_items %}
+<div class="dashboard-card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
+  <div style="padding: 1rem 1.25rem; background: #fafbfc; border-bottom: 1px solid #f3f4f6;">
+    <div class="card-heading" style="margin-bottom: 0; font-size: 0.95rem;">Processed Enquiries</div>
+  </div>
+  <div style="overflow-x: auto;">
+    <table class="custom-table" style="margin: 0;">
+      <thead>
+        <tr>
+          <th style="width: 70px;">Row</th>
+          <th style="width: 90px;">ID</th>
+          <th>Customer</th>
+          <th>Category</th>
+          <th style="width: 80px;">Score</th>
+          <th style="width: 120px;">Status</th>
+          <th style="width: 80px; text-align: right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in result.processed_items %}
+          <tr>
+            <td style="color: #6b7280; font-size: 0.8rem;">#{{ item.row }}</td>
+            <td class="cell-id">#EQ-{{ "%03d"|format(item.enquiry_id) }}</td>
+            <td class="cell-customer">{{ item.customer }}</td>
+            <td style="font-weight: 500;">{{ item.category }}</td>
+            <td class="cell-score">{{ item.score }}</td>
+            <td>
+              {% if item.status == 'COMPLETED' %}
+                <span class="badge-status completed">Completed</span>
+              {% elif item.status == 'NEEDS_REVIEW' %}
+                <span class="badge-status needs-review">Needs Review</span>
+              {% else %}
+                <span class="badge-status pending-review">{{ item.status }}</span>
+              {% endif %}
+            </td>
+            <td style="text-align: right;">
+              <a href="/enquiries/{{ item.enquiry_id }}" class="btn-quick-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">
+                View &rarr;
+              </a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if result.processing_errors or result.parse_errors %}
+<div class="dashboard-card" style="margin-bottom: 1.5rem; border-color: #fecaca; background: #fef2f2;">
+  <div class="card-heading" style="color: #991b1b; font-size: 0.95rem; margin-bottom: 0.5rem;">Errors Encountered</div>
+  <ul style="font-size: 0.85rem; color: #b91c1c; padding-left: 1.25rem;">
+    {% for err in result.parse_errors %}
+      <li>Parse Error (Row {{ err.row }}): {{ err.error }}</li>
+    {% endfor %}
+    {% for err in result.processing_errors %}
+      <li>Processing Error (Row {{ err.row }}): {{ err.error }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="dashboard-card" style="max-width: 680px;">
+  <div class="card-heading">Select File</div>
+  <form method="POST" action="/upload-csv" enctype="multipart/form-data" onsubmit="handleCsvSubmit(event)">
+    <div style="margin-bottom: 1.5rem;">
+      <label style="display: block; font-weight: 600; font-size: 0.88rem; margin-bottom: 0.5rem; color: #374151;">
+        Choose CSV file with customer enquiries:
+      </label>
+      <input type="file" name="file" accept=".csv" required 
+             style="display: block; width: 100%; padding: 0.85rem; border: 2px dashed #d1d5db; border-radius: 8px; background-color: #f9fafb; cursor: pointer; font-size: 0.88rem;" />
+      <div style="font-size: 0.78rem; color: #6b7280; margin-top: 0.5rem;">
+        Expected headers: <code>customer_name</code>, <code>company_name</code>, <code>email</code>, <code>message</code> (aliases like <code>name</code>, <code>enquiry</code>, <code>company</code> are automatically recognized).
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <button type="submit" id="csvSubmitBtn" class="btn-quick-teal" style="border: none; padding: 0.65rem 1.25rem;">
+        <span id="csvBtnText">Upload & Process Batch &rarr;</span>
+        <span id="csvBtnSpinner" style="display: none; align-items: center; gap: 0.4rem;">
+          <svg style="animation: spin 1s linear infinite; width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path></svg>
+          Processing batch...
+        </span>
+      </button>
+      <a href="/" class="btn-quick-outline" style="padding: 0.65rem 1rem;">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<style>
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
+
+<script>
+function handleCsvSubmit(e) {
+  const btn = document.getElementById('csvSubmitBtn');
+  const btnText = document.getElementById('csvBtnText');
+  const btnSpinner = document.getElementById('csvBtnSpinner');
+  
+  btnText.style.display = 'none';
+  btnSpinner.style.display = 'inline-flex';
+  btn.style.opacity = '0.85';
+  btn.style.pointerEvents = 'none';
+}
+</script>
+{% endblock %}
