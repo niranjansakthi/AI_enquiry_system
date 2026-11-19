@@ -14,9 +14,11 @@ Endpoints:
 """
 
 import logging
+import time
+from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import func
@@ -223,15 +225,37 @@ def handle_upload_csv_form(
             context={"result": None, "error": "Only CSV files are allowed."},
         )
 
+    start_time = time.time()
     content = file.file.read()
     rows, parse_errors = parse_csv(content)
 
     results = []
     processing_errors = []
+    high_count = 0
+    med_count = 0
+    low_count = 0
+    review_count = 0
+    duplicates_count = 0
 
     for i, row in enumerate(rows):
         try:
             detail = process_enquiry(row, db)
+            p = detail.analysis.priority if detail.analysis else "Low"
+            if p == "High":
+                high_count += 1
+            elif p == "Medium":
+                med_count += 1
+            else:
+                low_count += 1
+
+            if detail.enquiry.processing_status in {"NEEDS_REVIEW", "FAILED"} or (
+                detail.analysis and detail.analysis.requires_human_review
+            ):
+                review_count += 1
+
+            if detail.enquiry.is_duplicate:
+                duplicates_count += 1
+
             results.append({
                 "row": i + 1,
                 "enquiry_id": detail.enquiry.id,
@@ -239,17 +263,28 @@ def handle_upload_csv_form(
                 "customer": detail.enquiry.customer_name or "Anonymous",
                 "category": detail.analysis.category if detail.analysis else "N/A",
                 "score": detail.analysis.lead_score if detail.analysis else 0,
+                "priority": p,
+                "is_duplicate": detail.enquiry.is_duplicate,
             })
         except Exception as exc:
             processing_errors.append({"row": i + 1, "error": str(exc)})
+
+    duration = round(time.time() - start_time, 2)
 
     return templates.TemplateResponse(
         request=request,
         name="upload_csv.html",
         context={
             "result": {
+                "total": len(rows) + len(parse_errors),
                 "processed": len(results),
                 "failed": len(processing_errors) + len(parse_errors),
+                "high_priority": high_count,
+                "medium_priority": med_count,
+                "low_priority": low_count,
+                "needs_review": review_count,
+                "duplicates_detected": duplicates_count,
+                "duration_seconds": duration,
                 "processed_items": results,
                 "items": results,
                 "parse_errors": parse_errors,
@@ -258,6 +293,39 @@ def handle_upload_csv_form(
             "error": None,
         },
     )
+
+
+@router.get("/enquiries/export-csv", summary="Export enquiries to CSV")
+def export_enquiries_csv(
+    status: Optional[str] = None,
+    category: Optional[str] = None,
+    priority: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    from app.utils.csv_processor import export_enquiries_to_csv
+
+    query = db.query(Enquiry)
+
+    if status:
+        query = query.filter(Enquiry.processing_status == status.upper())
+
+    if category or priority:
+        query = query.join(EnquiryAnalysis, Enquiry.id == EnquiryAnalysis.enquiry_id)
+        if category:
+            query = query.filter(EnquiryAnalysis.category == category)
+        if priority:
+            query = query.filter(EnquiryAnalysis.priority == priority)
+
+    enquiries = query.order_by(Enquiry.created_at.desc()).all()
+    csv_data = export_enquiries_to_csv(enquiries)
+
+    filename = f"curd_rice_enquiries_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
 
 
 @router.get("/analytics", response_class=HTMLResponse, summary="Analytics UI")
@@ -332,6 +400,22 @@ def view_enquiry_detail(enquiry_id: int, request: Request, db: Session = Depends
     if not enquiry:
         raise HTTPException(status_code=404, detail="Enquiry not found")
 
+    gmail_url = None
+    mailto_url = None
+    if enquiry.draft and enquiry.draft.body:
+        from app.utils.email_compose import generate_gmail_compose_url, generate_mailto_url
+        subject = enquiry.draft.subject or f"Regarding your inquiry with Curd Rice Business Studio"
+        gmail_url = generate_gmail_compose_url(
+            recipient=enquiry.email,
+            subject=subject,
+            body=enquiry.draft.body,
+        )
+        mailto_url = generate_mailto_url(
+            recipient=enquiry.email,
+            subject=subject,
+            body=enquiry.draft.body,
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="enquiry_detail.html",
@@ -339,6 +423,8 @@ def view_enquiry_detail(enquiry_id: int, request: Request, db: Session = Depends
             "enquiry": enquiry,
             "analysis": enquiry.analysis,
             "draft": enquiry.draft,
+            "gmail_url": gmail_url,
+            "mailto_url": mailto_url,
         },
     )
 

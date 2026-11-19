@@ -15,6 +15,7 @@ Sections:
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 from typing import Optional
@@ -77,6 +78,9 @@ class EnquiryResponse(BaseModel):
     source: str
     processing_status: str
     created_at: datetime
+    is_duplicate: bool = False
+    duplicate_of_id: Optional[int] = None
+    duplicate_reason: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -90,6 +94,7 @@ class EnquiryListItem(BaseModel):
     source: str
     processing_status: str
     created_at: datetime
+    is_duplicate: bool = False
     # Populated from the joined analysis row when available
     category: Optional[str] = None
     priority: Optional[str] = None
@@ -203,10 +208,22 @@ class DraftResponse(BaseModel):
     subject: Optional[str]
     body: Optional[str]
     approval_status: str
+    validation_status: str = "PASSED"
+    validation_issues: Optional[list[str]] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("validation_issues", mode="before")
+    @classmethod
+    def parse_validation_issues(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return [v] if v else []
+        return v
 
 
 class DraftUpdate(BaseModel):
@@ -238,11 +255,23 @@ class AnalysisResponse(BaseModel):
     lead_score: Optional[int]
     priority: Optional[str]
     scoring_reasons: Optional[list[str]] = None
+    qualification_missing_info: Optional[list[str]] = None
+    clarification_questions: Optional[list[str]] = None
     requires_human_review: bool
     review_reason: Optional[str]
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("scoring_reasons", "qualification_missing_info", "clarification_questions", mode="before")
+    @classmethod
+    def parse_analysis_json_lists(cls, v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return [v] if v else []
+        return v
 
 
 class EnquiryDetail(BaseModel):
@@ -296,4 +325,50 @@ class ErrorResponse(BaseModel):
     success: bool = False
     error: str
     detail: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Upgraded Feature Schemas
+# ─────────────────────────────────────────────────────────────────────────────
+
+class DuplicateCheckResult(BaseModel):
+    is_duplicate: bool = False
+    original_enquiry_id: Optional[int] = None
+    original_created_at: Optional[datetime] = None
+    similarity_score: float = 0.0
+    message: Optional[str] = None
+
+
+class ValidationIssue(BaseModel):
+    code: str
+    severity: str  # "HIGH", "MEDIUM", "LOW"
+    description: str
+
+
+class SafetyValidationResult(BaseModel):
+    is_safe: bool = True
+    status: str = "PASSED"  # "PASSED", "WARNING", "FAILED"
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    requires_human_review: bool = False
+    explanation: Optional[str] = None
+
+
+class QualificationResult(BaseModel):
+    available_info: list[str] = Field(default_factory=list)
+    missing_info: list[str] = Field(default_factory=list)
+    clarification_questions: list[str] = Field(default_factory=list)
+    follow_up_draft: Optional[str] = None
+
+
+class BatchProcessingReport(BaseModel):
+    total_enquiries: int
+    processed: int
+    failed: int
+    high_priority: int
+    medium_priority: int
+    low_priority: int
+    needs_review: int
+    duplicates_detected: int
+    duration_seconds: float
+
 

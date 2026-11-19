@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # Application
     app_env: str = "development"
     log_level: str = "INFO"
+    duplicate_detection_window_days: int = 7
+    duplicate_similarity_threshold: float = 0.85
 
     model_config = SettingsConfigDict(
         env_file=".env",

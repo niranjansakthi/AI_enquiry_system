@@ -111,3 +111,78 @@ def parse_csv(
     )
     return valid_rows, errors
 
+
+def export_enquiries_to_csv(enquiries: list) -> str:
+    """
+    Generate a CSV export containing all available enquiry, analysis,
+    qualification, and response draft data.
+    """
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_MINIMAL)
+
+    headers = [
+        "Enquiry ID",
+        "Customer Name",
+        "Company",
+        "Email",
+        "Original Enquiry",
+        "Service Category",
+        "Lead Score",
+        "Priority",
+        "Score Explanation",
+        "Missing Qualification Information",
+        "Suggested Clarification Questions",
+        "Draft Subject",
+        "Draft Response Body",
+        "Draft Approval Status",
+        "Validation Status",
+        "Validation Issues",
+        "Processing Status",
+        "Potential Duplicate",
+        "Duplicate Of ID",
+        "Submission Date",
+    ]
+    writer.writerow(headers)
+
+    for enq in enquiries:
+        analysis = enq.analysis
+        draft = enq.draft
+
+        scoring_reasons_str = "; ".join(analysis.scoring_reasons_list) if analysis else ""
+        missing_info_str = "; ".join(analysis.qualification_missing_info_list) if analysis else ""
+        clarification_str = " | ".join(analysis.clarification_questions_list) if analysis else ""
+        validation_issues_str = "; ".join(draft.validation_issues_list) if draft else ""
+
+        created_str = (
+            enq.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            if enq.created_at
+            else ""
+        )
+
+        row = [
+            f"EQ-{enq.id:03d}",
+            enq.customer_name or "",
+            enq.company_name or "",
+            enq.email or "",
+            enq.message or "",
+            (analysis.category if analysis else "") or "",
+            analysis.lead_score if (analysis and analysis.lead_score is not None) else "",
+            (analysis.priority if analysis else "") or "",
+            scoring_reasons_str,
+            missing_info_str,
+            clarification_str,
+            (draft.subject if draft else "") or "",
+            (draft.body if draft else "") or "",
+            (draft.approval_status if draft else "") or "",
+            (draft.validation_status if draft else "") or "",
+            validation_issues_str,
+            enq.processing_status or "",
+            "Yes" if enq.is_duplicate else "No",
+            f"EQ-{enq.duplicate_of_id:03d}" if enq.duplicate_of_id else "",
+            created_str,
+        ]
+        writer.writerow(row)
+
+    return output.getvalue()
+
+

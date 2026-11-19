@@ -5,7 +5,9 @@
 [![Groq API](https://img.shields.io/badge/Groq-gpt--oss--120b-orange.svg)](https://groq.com/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-blue.svg)](https://www.postgresql.org/)
-[![Pytest](https://img.shields.io/badge/Tests-28%20Passed-brightgreen.svg)](https://pytest.org/)
+[![Tests](https://img.shields.io/badge/Tests-53%20Passed-brightgreen.svg)](https://pytest.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![CI](https://img.shields.io/badge/CI-GitHub%20Actions-2088FF.svg)](https://github.com/features/actions)
 
 An enterprise-ready AI enquiry intake, understanding, lead scoring, and response automation system engineered for **Curd Rice Business Studio** (operations, business intelligence, and AI systems consultancy).
 
@@ -19,8 +21,14 @@ The system accepts incoming business enquiries through three channels (Web UI, R
 - **Deterministic Lead Scoring**: Final lead scores (0–100) and priorities (High, Medium, Low) are calculated via auditable Python rules, eliminating LLM hallucination and mathematical drift.
 - **Mandatory Human-in-the-Loop**: Emails are **never** auto-sent. All generated responses require human review, editing, and approval.
 - **Automatic Policy Escalation**: Complaints, job/internship applications, and partnerships are automatically flagged for senior human intervention regardless of numerical score.
+- **Duplicate Enquiry Detection**: Deterministic similarity check using `difflib.SequenceMatcher` within a configurable rolling time window — no false positives, no LLM calls.
+- **AI Response Safety Validator**: Deterministic regex/keyword validator that flags invented pricing, deadline commitments, and unsupported guarantees before human review.
+- **Smart Lead Qualification**: Identifies missing lead information and auto-generates up to 3 clarification questions per enquiry category — entirely rule-based.
+- **Gmail Compose Integration**: One-click "Open in Gmail" button pre-fills recipient, subject, and body — the reviewer's browser handles sending.
+- **Batch Processing Reports**: Full CSV upload summary with priority distribution, duplicate detection count, review flags, and processing duration.
 - **Modern Responsive Dashboard**: Built with Jinja2, HTML5, and vanilla CSS matching modern SaaS operations interfaces (KPI stat cards, dynamic SVG donut & bar charts, filterable tables, and review queues).
-- **100% Test Coverage**: 28 automated tests covering schemas, validation, scoring algorithms, complaint escalation, draft workflows, and CSV uploads.
+- **53 Automated Tests**: Covers schemas, scoring, pipeline integration, duplicate detection, response validation, qualification, email compose, CSV export, and HTML views.
+- **Docker & CI Ready**: Ships with a `Dockerfile`, `docker-compose.yml`, and GitHub Actions CI pipeline.
 
 ---
 
@@ -40,25 +48,28 @@ flowchart TD
     end
 
     subgraph Engine["Service & Automation Engine"]
+        C0["Duplicate Detector (duplicate_detection.py)"]
         C1["Pipeline Orchestrator (pipeline.py)"]
         C2["AI Extraction (ai_understanding.py - Groq API)"]
-        C3["Deterministic Lead Scorer (lead_scoring.py - Pure Python)"]
-        C4["AI Email Drafter (ai_response.py - Groq API)"]
+        C3["Deterministic Lead Scorer (lead_scoring.py)"]
+        C4["Smart Qualification (qualification.py)"]
+        C5["AI Email Drafter (ai_response.py - Groq API)"]
+        C6["Safety Validator (response_validator.py)"]
     end
 
     subgraph Storage["Persistence Layer"]
         D1[("PostgreSQL / SQLite")]
-        D2["Enquiry Table (Raw Input)"]
-        D3["EnquiryAnalysis Table (Extracted Entities & Score)"]
-        D4["ResponseDraft Table (Drafts & Approval Status)"]
+        D2["Enquiry Table"]
+        D3["EnquiryAnalysis Table"]
+        D4["ResponseDraft Table"]
     end
 
     A1 & A2 & A3 --> B1
     B1 --> B2
-    B2 --> C1
-    C1 --> C2
-    C1 --> C3
-    C1 --> C4
+    B2 --> C0
+    C0 --> C1
+    C1 --> C2 --> C3 --> C4
+    C4 --> C5 --> C6
     C1 --> D2 & D3 & D4
     D2 & D3 & D4 -.-> D1
 ```
@@ -135,6 +146,9 @@ erDiagram
         text message
         string source
         string processing_status
+        boolean is_duplicate
+        int duplicate_of_id
+        text duplicate_reason
         datetime created_at
     }
 
@@ -150,6 +164,8 @@ erDiagram
         int lead_score
         string priority
         text scoring_reasons
+        text qualification_missing_info
+        text clarification_questions
         boolean requires_human_review
         text review_reason
         datetime created_at
@@ -161,6 +177,8 @@ erDiagram
         string subject
         text body
         string approval_status
+        string validation_status
+        text validation_issues
         datetime created_at
         datetime updated_at
     }
@@ -190,6 +208,8 @@ FastAPI provides an interactive Swagger interface at `http://localhost:8000/docs
 | `POST` | `/api/enquiries/upload-csv` | REST API endpoint to upload and process a CSV file |
 | `GET` | `/api/enquiries` | Paginated enquiry list with query filters |
 | `GET` | `/api/enquiries/{id}` | Full enquiry detail with analysis and draft schema |
+| `GET` | `/api/enquiries/export-csv` | Download all enquiries as a CSV file (filterable) |
+| `GET` | `/enquiries/export-csv` | HTML-triggered CSV export from enquiry list page |
 | `GET` | `/api/dashboard/stats` | Aggregated metrics (totals, priority, categories, pending reviews) |
 | `GET` | `/api/health` | Service health status |
 
@@ -253,19 +273,85 @@ FastAPI provides an interactive Swagger interface at `http://localhost:8000/docs
 
 ---
 
+## Running with Docker
+
+> Requires Docker Desktop installed and running.
+
+```bash
+docker compose up --build
+```
+
+The app will be available at `http://localhost:8000`. Data is persisted in a Docker volume (`enquiry_data`) using SQLite.
+
+**Environment variables** are set in `docker-compose.yml`. To use PostgreSQL instead of SQLite, update `DATABASE_URL` in that file.
+
+---
+
 ## Running the Automated Test Suite
 
-Run the full suite of **28 tests**:
+Run the full suite of **53 tests**:
 ```bash
 pytest -v
 ```
 
+> On Windows PowerShell: `.venv\Scripts\pytest.exe -v`
+
 ### Test Suite Breakdown
-- `tests/test_schemas_and_validation.py` (8 tests): Pydantic input models, string sanitizers, email validators, and category validation.
-- `tests/test_lead_scoring.py` (6 tests): Scoring math, priority thresholds, complaint scoring, and empty field resilience.
-- `tests/test_api_and_pipeline.py` (6 tests): Pipeline end-to-end integration, auto-escalation, draft approval workflow, and CSV batch processing.
-- `tests/test_csv_upload_extended.py` (5 tests): Header aliases (`name`, `enquiry`, `company`), case insensitivity, corrupted emails, and empty files.
-- `tests/test_frontend_views.py` (3 tests): HTML view status codes, manual submission flows, and CSV batch results rendering.
+
+| File | Tests | Coverage |
+|:--- |:---:|:--- |
+| `tests/test_schemas_and_validation.py` | 8 | Pydantic models, email validators, category coercion |
+| `tests/test_lead_scoring.py` | 6 | Scoring math, priority thresholds, complaint scoring |
+| `tests/test_api_and_pipeline.py` | 6 | Pipeline E2E, escalation, draft approval, CSV batch |
+| `tests/test_csv_upload_extended.py` | 5 | Header aliases, case insensitivity, corrupted emails |
+| `tests/test_frontend_views.py` | 3 | HTML view status codes, form flows, batch results |
+| `tests/test_duplicate_detection.py` | 9 | Exact/near duplicates, time window, email normalization |
+| `tests/test_response_validator.py` | 7 | Pricing flags, guarantees, complaint tone, missing greeting |
+| `tests/test_qualification_and_export.py` | 4 | Missing info detection, clarification questions, CSV export |
+| `tests/test_email_compose.py` | 5 | Gmail URL generation, special characters, empty fields |
+
+---
+
+## New Features (Upgrade Pack)
+
+### A — Duplicate Enquiry Detection
+Detects exact and near-duplicate enquiries from the same sender within a configurable rolling window (default: 7 days). Uses `difflib.SequenceMatcher` — no LLM calls. Duplicate enquiries are saved and flagged for human review rather than silently discarded.
+
+**Configuration** (`.env`):
+```ini
+DUPLICATE_DETECTION_WINDOW_DAYS=7
+DUPLICATE_SIMILARITY_THRESHOLD=0.85
+```
+
+### B — AI Response Safety Validator
+Deterministic regex/keyword validator runs on every AI-generated draft before it reaches the review queue. Flags:
+- Invented prices or cost commitments
+- Guaranteed delivery dates or timelines
+- Unsupported capability claims
+- Missing acknowledgement or next steps
+- Dismissive tone in complaint responses
+
+Flagged drafts are escalated to `NEEDS_REVIEW` automatically.
+
+### C — Smart Lead Qualification
+Analyses each enquiry to identify what information is already available and what is missing (budget, timeline, platform, business type, etc.). Generates up to 3 specific clarification questions per category, displayed on the enquiry detail page. Entirely rule-based — no extra LLM call.
+
+### D — Batch Processing Report & CSV Export
+The `/upload-csv` page now shows a full post-batch summary: total processed, priority breakdown, duplicate count, review flags, and processing duration. A one-click **Export CSV** button downloads all enquiries (or filtered subsets) as a 20-column CSV.
+
+**Endpoints**: `GET /enquiries/export-csv` · `GET /api/enquiries/export-csv`
+
+### E — Gmail Compose Integration
+The enquiry detail page includes **"Open in Gmail →"** and **"Default Email Client"** buttons. Clicking pre-fills recipient, subject, and body in the reviewer's email client. No OAuth, no automatic sending — the reviewer always controls dispatch.
+
+### F — Docker Support
+Production-ready `Dockerfile` and `docker-compose.yml` included. Single command to build and run:
+```bash
+docker compose up --build
+```
+
+### G — GitHub Actions CI
+`.github/workflows/ci.yml` runs `pytest -v` on every push and pull request to `main`/`master` using Python 3.12. No secrets required — all Groq calls are mocked in tests.
 
 ---
 
@@ -282,6 +368,17 @@ You can upload this directly on the `/upload-csv` page to verify classification 
 - Customer Complaints (Auto-escalated)
 - Student Internship Applications (Auto-escalated)
 - Strategic Partnerships (Auto-escalated)
+
+---
+
+## Known Limitations
+
+| Limitation | Detail |
+|:--- |:--- |
+| **No automatic DB migration** | New columns (`is_duplicate`, `duplicate_of_id`, `validation_status`, etc.) are only created on fresh databases. For an existing PostgreSQL database, run `alembic upgrade head` or drop and recreate tables. SQLite: delete `enquiries.db` and restart. |
+| **Docker untested locally** | The `Dockerfile` and `docker-compose.yml` follow best practices but could not be run locally (Docker not installed on the development machine). |
+| **Gmail URL size limit** | Very long email drafts may exceed browser URL limits for the Gmail compose link. The `mailto:` fallback handles this case. |
+| **No real email sending** | By design — the system only generates compose URLs. Actual sending is always a manual human action. |
 
 ---
 

@@ -88,6 +88,11 @@ class Enquiry(Base):
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
 
+    # Duplicate detection tracking
+    is_duplicate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    duplicate_of_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    duplicate_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Relationships
     analysis: Mapped["EnquiryAnalysis | None"] = relationship(
         "EnquiryAnalysis", back_populates="enquiry", uselist=False, cascade="all, delete-orphan"
@@ -138,6 +143,10 @@ class EnquiryAnalysis(Base):
     requires_human_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Lead qualification & clarification (Upgrade C)
+    qualification_missing_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    clarification_questions: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -160,6 +169,32 @@ class EnquiryAnalysis(Base):
     @scoring_reasons_list.setter
     def scoring_reasons_list(self, value: list[str]) -> None:
         self.scoring_reasons = json.dumps(value)
+
+    @property
+    def qualification_missing_info_list(self) -> list[str]:
+        if not self.qualification_missing_info:
+            return []
+        try:
+            return json.loads(self.qualification_missing_info)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @qualification_missing_info_list.setter
+    def qualification_missing_info_list(self, value: list[str]) -> None:
+        self.qualification_missing_info = json.dumps(value)
+
+    @property
+    def clarification_questions_list(self) -> list[str]:
+        if not self.clarification_questions:
+            return []
+        try:
+            return json.loads(self.clarification_questions)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @clarification_questions_list.setter
+    def clarification_questions_list(self, value: list[str]) -> None:
+        self.clarification_questions = json.dumps(value)
 
     def __repr__(self) -> str:
         return f"<EnquiryAnalysis enquiry_id={self.enquiry_id} score={self.lead_score}>"
@@ -192,6 +227,12 @@ class ResponseDraft(Base):
         String(20), nullable=False, default=ApprovalStatus.PENDING.value
     )
 
+    # Safety validation tracking (Upgrade B)
+    validation_status: Mapped[str] = mapped_column(
+        String(30), nullable=False, default="PASSED"
+    )
+    validation_issues: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=lambda: datetime.now(timezone.utc)
     )
@@ -201,6 +242,19 @@ class ResponseDraft(Base):
 
     # Relationship
     enquiry: Mapped["Enquiry"] = relationship("Enquiry", back_populates="draft")
+
+    @property
+    def validation_issues_list(self) -> list[str]:
+        if not self.validation_issues:
+            return []
+        try:
+            return json.loads(self.validation_issues)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    @validation_issues_list.setter
+    def validation_issues_list(self, value: list[str]) -> None:
+        self.validation_issues = json.dumps(value)
 
     def __repr__(self) -> str:
         return f"<ResponseDraft enquiry_id={self.enquiry_id} status={self.approval_status}>"

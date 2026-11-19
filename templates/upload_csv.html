@@ -13,27 +13,67 @@
 {% endif %}
 
 {% if result %}
-<div style="background-color: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; padding: 1rem 1.25rem; border-radius: 8px; margin-bottom: 1.5rem;">
-  <div style="font-weight: 700; font-size: 1rem; margin-bottom: 0.35rem;">Batch Processing Complete!</div>
-  <div style="font-size: 0.88rem;">
-    Successfully processed <strong>{{ result.processed }}</strong> enquiries. Skipped / failed: <strong>{{ result.failed }}</strong>.
+<!-- BATCH PROCESSING SUMMARY REPORT (Upgrade D) -->
+<div class="dashboard-card" style="margin-bottom: 1.5rem; background: #fafbfc; border-color: #cbd5e1;">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+    <div>
+      <div style="font-weight: 800; font-size: 1.1rem; color: #0f172a;">Batch Processing Complete!</div>
+      <div style="font-size: 0.82rem; color: #64748b;">
+        Processed <strong>{{ result.processed }}</strong> enquiries in <strong>{{ result.duration_seconds }}s</strong> across <strong>{{ result.total }}</strong> input entries
+      </div>
+    </div>
+    <div>
+      <a href="/enquiries/export-csv" class="btn-quick-teal" style="text-decoration: none; display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.9rem; font-size: 0.82rem;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export Full Results (CSV)
+      </a>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Processed</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #008779;">{{ result.processed }}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">High Priority</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #047857;">{{ result.high_priority }}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Medium Priority</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #d97706;">{{ result.medium_priority }}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Low Priority</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #64748b;">{{ result.low_priority }}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Needs Review</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #dc2626;">{{ result.needs_review }}</div>
+    </div>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem;">
+      <div style="font-size: 0.72rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Duplicates</div>
+      <div style="font-size: 1.4rem; font-weight: 800; color: #b45309;">{{ result.duplicates_detected }}</div>
+    </div>
   </div>
 </div>
 
 {% if result.processed_items %}
 <div class="dashboard-card" style="padding: 0; overflow: hidden; margin-bottom: 1.5rem;">
-  <div style="padding: 1rem 1.25rem; background: #fafbfc; border-bottom: 1px solid #f3f4f6;">
-    <div class="card-heading" style="margin-bottom: 0; font-size: 0.95rem;">Processed Enquiries</div>
+  <div style="padding: 1rem 1.25rem; background: #fafbfc; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center;">
+    <div class="card-heading" style="margin-bottom: 0; font-size: 0.95rem;">Processed Enquiries in this Batch</div>
+    <span style="font-size: 0.8rem; color: #64748b;">{{ result.processed_items|length }} entries</span>
   </div>
   <div style="overflow-x: auto;">
     <table class="custom-table" style="margin: 0;">
       <thead>
         <tr>
-          <th style="width: 70px;">Row</th>
+          <th style="width: 60px;">Row</th>
           <th style="width: 90px;">ID</th>
           <th>Customer</th>
           <th>Category</th>
-          <th style="width: 80px;">Score</th>
+          <th style="width: 75px;">Score</th>
+          <th style="width: 90px;">Priority</th>
           <th style="width: 120px;">Status</th>
           <th style="width: 80px; text-align: right;">Action</th>
         </tr>
@@ -42,10 +82,18 @@
         {% for item in result.processed_items %}
           <tr>
             <td style="color: #6b7280; font-size: 0.8rem;">#{{ item.row }}</td>
-            <td class="cell-id">#EQ-{{ "%03d"|format(item.enquiry_id) }}</td>
+            <td class="cell-id">
+              #EQ-{{ "%03d"|format(item.enquiry_id) }}
+              {% if item.is_duplicate %}
+                <span title="Potential Duplicate" style="font-size: 0.65rem; background: #fef3c7; color: #92400e; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 700;">DUP</span>
+              {% endif %}
+            </td>
             <td class="cell-customer">{{ item.customer }}</td>
             <td style="font-weight: 500;">{{ item.category }}</td>
             <td class="cell-score">{{ item.score }}</td>
+            <td>
+              <span class="badge-priority {{ item.priority.lower() }}">{{ item.priority }}</span>
+            </td>
             <td>
               {% if item.status == 'COMPLETED' %}
                 <span class="badge-status completed">Completed</span>
@@ -70,7 +118,7 @@
 
 {% if result.processing_errors or result.parse_errors %}
 <div class="dashboard-card" style="margin-bottom: 1.5rem; border-color: #fecaca; background: #fef2f2;">
-  <div class="card-heading" style="color: #991b1b; font-size: 0.95rem; margin-bottom: 0.5rem;">Errors Encountered</div>
+  <div class="card-heading" style="color: #991b1b; font-size: 0.95rem; margin-bottom: 0.5rem;">Errors Encountered ({{ result.failed }})</div>
   <ul style="font-size: 0.85rem; color: #b91c1c; padding-left: 1.25rem;">
     {% for err in result.parse_errors %}
       <li>Parse Error (Row {{ err.row }}): {{ err.error }}</li>

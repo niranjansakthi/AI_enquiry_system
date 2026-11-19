@@ -57,6 +57,16 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
     from app.services.ai_understanding import AIExtractionError, extract_enquiry_info
     from app.services.ai_response import AIResponseError, generate_email_draft
     from app.services.lead_scoring import calculate_lead_score
+    from app.services.duplicate_detection import check_duplicate_enquiry
+    from app.services.qualification import analyze_lead_qualification
+    from app.services.response_validator import validate_response_draft
+
+    # ── Step 1b: Duplicate Detection (Upgrade A) ─────────────────────────
+    dup_check = check_duplicate_enquiry(
+        email=payload.email,
+        message=payload.message,
+        db=db,
+    )
 
     # ── Step 2: Save original enquiry ─────────────────────────────────────
     enquiry = Enquiry(
@@ -67,11 +77,17 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         source=payload.source,
         processing_status=ProcessingStatus.PENDING.value,
         created_at=datetime.now(timezone.utc),
+        is_duplicate=dup_check.is_duplicate,
+        duplicate_of_id=dup_check.original_enquiry_id,
+        duplicate_reason=dup_check.message,
     )
     db.add(enquiry)
     db.commit()
     db.refresh(enquiry)
-    logger.info("Enquiry %d saved (status=PENDING).", enquiry.id)
+    logger.info(
+        "Enquiry %d saved (status=PENDING, is_duplicate=%s).",
+        enquiry.id, dup_check.is_duplicate,
+    )
 
     # ── Step 3: Mark as processing ────────────────────────────────────────
     enquiry.processing_status = ProcessingStatus.PROCESSING.value
@@ -93,6 +109,14 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
     # ── Step 6: Lead scoring (pure Python) ───────────────────────────────
     lead_score = calculate_lead_score(extracted)
 
+    # ── Step 6b: Smart Lead Qualification (Upgrade C) ────────────────────
+    qualification = analyze_lead_qualification(
+        message=enquiry.message,
+        extracted=extracted,
+        customer_name=enquiry.customer_name,
+        company_name=enquiry.company_name,
+    )
+
     # ── Step 7: Human review flags ────────────────────────────────────────
     # Categories that always require escalation, regardless of score
     if extracted.category in ESCALATION_CATEGORIES:
@@ -101,6 +125,12 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
             extracted.review_reason = (
                 f"Category '{extracted.category}' requires human evaluation."
             )
+
+    if dup_check.is_duplicate:
+        extracted.requires_human_review = True
+        reason_parts = [extracted.review_reason] if extracted.review_reason else []
+        reason_parts.append(dup_check.message or "Potential duplicate enquiry detected.")
+        extracted.review_reason = " | ".join(reason_parts)
 
     final_status = (
         ProcessingStatus.NEEDS_REVIEW.value
@@ -120,6 +150,8 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         lead_score=lead_score.score,
         priority=lead_score.priority,
         scoring_reasons=json.dumps(lead_score.reasons),
+        qualification_missing_info=json.dumps(qualification.missing_info),
+        clarification_questions=json.dumps(qualification.clarification_questions),
         requires_human_review=extracted.requires_human_review,
         review_reason=extracted.review_reason,
         created_at=datetime.now(timezone.utc),
@@ -132,7 +164,7 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         enquiry.id, lead_score.score, lead_score.priority, extracted.requires_human_review,
     )
 
-    # ── Step 8: Generate email draft ──────────────────────────────────────
+    # ── Step 8: Generate email draft & Validate (Upgrade B) ────────────────
     draft_row = None
     try:
         draft_content = generate_email_draft(
@@ -140,18 +172,40 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
             extracted=extracted,
             lead_score=lead_score,
         )
+
+        # Deterministic Safety Validation
+        validation_result = validate_response_draft(
+            subject=draft_content.subject,
+            body=draft_content.body,
+            category=extracted.category,
+            extracted=extracted,
+        )
+
+        if validation_result.requires_human_review:
+            final_status = ProcessingStatus.NEEDS_REVIEW.value
+            analysis_row.requires_human_review = True
+            reasons = [analysis_row.review_reason] if analysis_row.review_reason else []
+            reasons.append(f"Validation: {validation_result.explanation}")
+            analysis_row.review_reason = " | ".join(reasons)
+            db.commit()
+
         draft_row = ResponseDraft(
             enquiry_id=enquiry.id,
             subject=draft_content.subject,
             body=draft_content.body,
             approval_status="PENDING",
+            validation_status=validation_result.status,
+            validation_issues=json.dumps([issue.description for issue in validation_result.issues]),
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
         )
         db.add(draft_row)
         db.commit()
         db.refresh(draft_row)
-        logger.info("Draft saved for enquiry %d.", enquiry.id)
+        logger.info(
+            "Draft saved for enquiry %d (validation=%s).",
+            enquiry.id, validation_result.status,
+        )
 
     except AIResponseError as exc:
         logger.error("Draft generation failed for enquiry %d: %s", enquiry.id, exc)
@@ -194,6 +248,8 @@ def _build_detail(
             lead_score=analysis_row.lead_score,
             priority=analysis_row.priority,
             scoring_reasons=analysis_row.scoring_reasons_list,
+            qualification_missing_info=analysis_row.qualification_missing_info_list,
+            clarification_questions=analysis_row.clarification_questions_list,
             requires_human_review=analysis_row.requires_human_review,
             review_reason=analysis_row.review_reason,
             created_at=analysis_row.created_at,
@@ -202,7 +258,17 @@ def _build_detail(
     draft_schema = None
     if draft_row:
         db.refresh(draft_row)
-        draft_schema = DraftResponse.model_validate(draft_row)
+        draft_schema = DraftResponse(
+            id=draft_row.id,
+            enquiry_id=draft_row.enquiry_id,
+            subject=draft_row.subject,
+            body=draft_row.body,
+            approval_status=draft_row.approval_status,
+            validation_status=draft_row.validation_status,
+            validation_issues=draft_row.validation_issues_list,
+            created_at=draft_row.created_at,
+            updated_at=draft_row.updated_at,
+        )
 
     return EnquiryDetail(
         enquiry=EnquiryResponse.model_validate(enquiry),

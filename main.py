@@ -12,6 +12,7 @@ Responsibilities:
 - Configure application-wide logging
 """
 
+from contextlib import asynccontextmanager
 import logging
 
 from fastapi import FastAPI
@@ -21,9 +22,6 @@ from fastapi.templating import Jinja2Templates
 from config import get_settings
 from database import create_tables
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Logging
-# ─────────────────────────────────────────────────────────────────────────────
 settings = get_settings()
 
 logging.basicConfig(
@@ -33,33 +31,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# App
-# ─────────────────────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager replacing deprecated @app.on_event."""
+    create_tables()
+    logger.info("Database tables verified / created.")
+    logger.info("Application started in '%s' mode.", settings.app_env)
+    yield
+
+
 app = FastAPI(
     title="Curd Rice Business Studio – Enquiry Automation",
     description="AI-powered business enquiry processing system",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Static files and templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Startup
-# ─────────────────────────────────────────────────────────────────────────────
-@app.on_event("startup")
-def on_startup():
-    """Create database tables and log that the application has started."""
-    create_tables()
-    logger.info("Database tables verified / created.")
-    logger.info("Application started in '%s' mode.", settings.app_env)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Routers – imported after app is defined to avoid circular imports
-# ─────────────────────────────────────────────────────────────────────────────
 from app.routers import enquiries, drafts, dashboard  # noqa: E402
 
 app.include_router(enquiries.router, prefix="/api", tags=["enquiries"])
