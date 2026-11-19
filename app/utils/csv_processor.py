@@ -1,14 +1,4 @@
-"""
-app/utils/csv_processor.py
-───────────────────────────
-Reads an uploaded CSV file and yields EnquiryCreate rows.
-
-Supported CSV columns (case-insensitive, all optional except message):
-  customer_name, company_name, email, message, source
-
-Rows that fail validation are collected as errors and returned alongside
-the valid rows so the caller can report them without stopping the batch.
-"""
+"""CSV parsing, header normalization, and batch export utilities."""
 
 import csv
 import io

@@ -1,17 +1,4 @@
-"""
-app/routers/dashboard.py
-────────────────────────
-Endpoints for dashboard statistics, health check, and HTML views.
-
-Endpoints:
-  GET  /api/health           – Application health check
-  GET  /api/dashboard/stats  – Aggregated counts, priority, and category stats
-  GET  /                     – HTML dashboard (stats + quick view)
-  GET  /enquiries            – HTML enquiry list view with filters & search
-  GET  /enquiries/new        – HTML form for manual enquiry submission
-  GET  /enquiries/{id}       – HTML enquiry detail view (analysis + editable draft)
-  GET  /review               – HTML review queue (pending reviews & drafts)
-"""
+"""Dashboard routes, statistics, health check, and HTML views."""
 
 import logging
 import time
@@ -39,10 +26,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 1. API Endpoints
-# ─────────────────────────────────────────────────────────────────────────────
-
+# API endpoints
 @router.get("/api/health", summary="Application health check")
 def health_check():
     return {
@@ -131,10 +115,7 @@ def get_dashboard_stats(db: Session = Depends(get_db)):
     )
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. HTML View Endpoints
-# ─────────────────────────────────────────────────────────────────────────────
-
+# HTML view endpoints
 @router.get("/", response_class=HTMLResponse, summary="Dashboard UI")
 def view_dashboard(request: Request, db: Session = Depends(get_db)):
     stats = get_dashboard_stats(db)

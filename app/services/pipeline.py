@@ -1,28 +1,4 @@
-"""
-app/services/pipeline.py
-─────────────────────────
-Module E: Central automation pipeline.
-
-Single public function: process_enquiry(payload, db) -> EnquiryDetail
-
-Steps:
-  1. Validate input (Pydantic handles this before the function is called)
-  2. Save the original enquiry with status PENDING
-  3. Set status to PROCESSING
-  4. Call AI understanding service (Module B)
-  5. Validate extracted information
-  6. Calculate lead score using Python (Module C)
-  7. Determine priority and human review flags
-  8. Generate email draft (Module D)
-  9. Save EnquiryAnalysis and ResponseDraft to the database
-  10. Set final status (COMPLETED or NEEDS_REVIEW)
-  11. Return full EnquiryDetail
-
-Failure handling:
-  - If AI extraction fails: enquiry is saved as FAILED, no analysis created
-  - If draft generation fails: analysis is saved, draft skipped, status = NEEDS_REVIEW
-  - The original enquiry is NEVER lost regardless of downstream failures
-"""
+"""Central enquiry automation pipeline."""
 
 import json
 import logging
@@ -44,16 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
-    """
-    Run an enquiry through the full automation pipeline.
-
-    Args:
-        payload : validated EnquiryCreate from the API layer
-        db      : active SQLAlchemy session
-
-    Returns:
-        EnquiryDetail with enquiry, analysis, and draft populated
-    """
+    """Run an enquiry through extraction, scoring, qualification, and draft generation."""
     from app.services.ai_understanding import AIExtractionError, extract_enquiry_info
     from app.services.ai_response import AIResponseError, generate_email_draft
     from app.services.lead_scoring import calculate_lead_score
@@ -61,14 +28,14 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
     from app.services.qualification import analyze_lead_qualification
     from app.services.response_validator import validate_response_draft
 
-    # ── Step 1b: Duplicate Detection (Upgrade A) ─────────────────────────
+    # Duplicate check
     dup_check = check_duplicate_enquiry(
         email=payload.email,
         message=payload.message,
         db=db,
     )
 
-    # ── Step 2: Save original enquiry ─────────────────────────────────────
+    # Save initial enquiry
     enquiry = Enquiry(
         customer_name=payload.customer_name,
         company_name=payload.company_name,
@@ -89,11 +56,11 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         enquiry.id, dup_check.is_duplicate,
     )
 
-    # ── Step 3: Mark as processing ────────────────────────────────────────
+    # Mark as processing
     enquiry.processing_status = ProcessingStatus.PROCESSING.value
     db.commit()
 
-    # ── Step 4: AI extraction ─────────────────────────────────────────────
+    # Information extraction
     try:
         extracted = extract_enquiry_info(
             message=enquiry.message,
@@ -106,10 +73,8 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         db.commit()
         return _build_detail(enquiry, analysis_row=None, draft_row=None, db=db)
 
-    # ── Step 6: Lead scoring (pure Python) ───────────────────────────────
+    # Lead scoring and qualification
     lead_score = calculate_lead_score(extracted)
-
-    # ── Step 6b: Smart Lead Qualification (Upgrade C) ────────────────────
     qualification = analyze_lead_qualification(
         message=enquiry.message,
         extracted=extracted,
@@ -117,8 +82,7 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         company_name=enquiry.company_name,
     )
 
-    # ── Step 7: Human review flags ────────────────────────────────────────
-    # Categories that always require escalation, regardless of score
+    # Review escalation checks
     if extracted.category in ESCALATION_CATEGORIES:
         extracted.requires_human_review = True
         if not extracted.review_reason:
@@ -138,7 +102,7 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         else ProcessingStatus.COMPLETED.value
     )
 
-    # ── Step 9a: Save EnquiryAnalysis ─────────────────────────────────────
+    # Save analysis
     analysis_row = EnquiryAnalysis(
         enquiry_id=enquiry.id,
         category=extracted.category,
@@ -164,7 +128,7 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
         enquiry.id, lead_score.score, lead_score.priority, extracted.requires_human_review,
     )
 
-    # ── Step 8: Generate email draft & Validate (Upgrade B) ────────────────
+    # Draft generation and validation
     draft_row = None
     try:
         draft_content = generate_email_draft(
@@ -173,7 +137,6 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
             lead_score=lead_score,
         )
 
-        # Deterministic Safety Validation
         validation_result = validate_response_draft(
             subject=draft_content.subject,
             body=draft_content.body,
@@ -209,10 +172,9 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
 
     except AIResponseError as exc:
         logger.error("Draft generation failed for enquiry %d: %s", enquiry.id, exc)
-        # Draft failure is not fatal — save analysis without a draft
         final_status = ProcessingStatus.NEEDS_REVIEW.value
 
-    # ── Step 10: Final status ─────────────────────────────────────────────
+    # Update final processing status
     enquiry.processing_status = final_status
     db.commit()
     logger.info("Enquiry %d pipeline complete (status=%s).", enquiry.id, final_status)
@@ -220,17 +182,13 @@ def process_enquiry(payload: EnquiryCreate, db: Session) -> EnquiryDetail:
     return _build_detail(enquiry, analysis_row, draft_row, db)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _build_detail(
     enquiry: Enquiry,
     analysis_row: EnquiryAnalysis | None,
     draft_row: ResponseDraft | None,
     db: Session,
 ) -> EnquiryDetail:
-    """Construct the EnquiryDetail response schema from ORM objects."""
+    """Construct EnquiryDetail response from ORM records."""
     db.refresh(enquiry)
 
     analysis_schema = None

@@ -1,13 +1,4 @@
-"""
-app/routers/enquiries.py
-────────────────────────
-REST endpoints for enquiry submission and retrieval.
-
-POST  /api/enquiries            – submit and process a single enquiry
-POST  /api/enquiries/upload-csv – upload and process a CSV batch
-GET   /api/enquiries            – list enquiries with optional filters + pagination
-GET   /api/enquiries/{id}       – full enquiry details with analysis and draft
-"""
+"""REST endpoints for enquiry submission, CSV upload, and retrieval."""
 
 import logging
 import time
@@ -25,10 +16,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# POST /api/enquiries
-# ─────────────────────────────────────────────────────────────────────────────
 
 @router.post(
     "/enquiries",
@@ -50,10 +37,6 @@ def submit_enquiry(payload: EnquiryCreate, db: Session = Depends(get_db)):
     result = process_enquiry(payload, db)
     return result
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# POST /api/enquiries/upload-csv
-# ─────────────────────────────────────────────────────────────────────────────
 
 @router.post(
     "/enquiries/upload-csv",
@@ -136,10 +119,6 @@ def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
         "processing_errors": processing_errors,
     }
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/enquiries
-# ─────────────────────────────────────────────────────────────────────────────
 
 @router.get(
     "/enquiries",
@@ -244,10 +223,6 @@ def api_export_enquiries_csv(
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# GET /api/enquiries/{id}
-# ─────────────────────────────────────────────────────────────────────────────
 
 @router.get(
     "/enquiries/{enquiry_id}",

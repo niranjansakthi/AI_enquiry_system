@@ -1,10 +1,4 @@
-"""
-app/utils/email_compose.py
-Utilities to generate safe, URL-encoded email compose URLs for Gmail web and mailto links.
-
-Does not call external APIs, OAuth, or auto-send emails.
-Generates links that open compose views for manual human review and sending.
-"""
+"""Email client compose URL builders for Gmail and default mailto handlers."""
 
 from typing import Optional
 from urllib.parse import quote

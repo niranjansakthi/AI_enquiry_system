@@ -1,11 +1,4 @@
-"""
-config.py
-─────────
-Loads all environment variables and exposes a single Settings object.
-Also holds the BUSINESS_CONTEXT constant that is passed into AI prompts.
-
-No secrets are hardcoded here. Every sensitive value must be present in .env.
-"""
+"""Application configuration and environment settings."""
 
 import logging
 import sys
@@ -41,7 +34,6 @@ class Settings(BaseSettings):
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
-    """Return cached settings. Fails fast if required vars are missing."""
     try:
         return Settings()
     except Exception as exc:
@@ -49,10 +41,7 @@ def get_settings() -> Settings:
         sys.exit(1)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Business context injected into AI prompts.
-# Keep this concise and factually accurate. Do not exaggerate services.
-# ─────────────────────────────────────────────────────────────────────────────
+# Business context for prompts
 BUSINESS_CONTEXT = """
 Business name: Curd Rice Business Studio
 
@@ -79,9 +68,7 @@ Important restrictions for AI-generated responses:
 - Escalate unclear, sensitive or complaint-type enquiries to a human reviewer.
 """
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Supported enquiry categories. Shared by schemas and AI prompts.
-# ─────────────────────────────────────────────────────────────────────────────
+# Supported enquiry categories
 ENQUIRY_CATEGORIES = [
     "Business Consulting",
     "AI Automation",

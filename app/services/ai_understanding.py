@@ -1,19 +1,4 @@
-"""
-app/services/ai_understanding.py
-─────────────────────────────────
-Module B: AI enquiry understanding.
-
-Single public function: extract_enquiry_info(message, existing_data)
-
-Responsibilities:
-- Build the extraction prompt with business context
-- Call Groq with timeout and limited retry
-- Parse and validate the JSON response
-- Return ExtractedInfo or raise AIExtractionError
-
-No RAG, no embeddings, no LangChain.
-The business context is a plain string passed into the system prompt.
-"""
+"""Enquiry understanding and entity extraction using Groq LLM."""
 
 import json
 import logging
@@ -33,10 +18,7 @@ class AIExtractionError(Exception):
     pass
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Prompt construction
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Prompt configuration
 SYSTEM_PROMPT = f"""You are an intelligent business enquiry analyst for Curd Rice Business Studio.
 
 {BUSINESS_CONTEXT}

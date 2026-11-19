@@ -1,11 +1,4 @@
-"""
-app/services/duplicate_detection.py
-Intelligent deterministic duplicate enquiry detection.
-
-Checks if an enquiry is an exact or near-duplicate of a recent enquiry
-from the same customer or with similar content within a configurable time window.
-Does not use an LLM for duplicate detection.
-"""
+"""Duplicate enquiry detection using text normalization and similarity matching."""
 
 from datetime import datetime, timedelta, timezone
 import difflib

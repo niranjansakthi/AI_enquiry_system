@@ -1,16 +1,4 @@
-"""
-main.py
-───────
-FastAPI application entry point.
-
-Responsibilities:
-- Create the FastAPI app instance
-- Register all routers
-- Mount the static files directory
-- Configure Jinja2 templates
-- Create database tables on startup
-- Configure application-wide logging
-"""
+"""Application entry point and routing setup."""
 
 from contextlib import asynccontextmanager
 import logging
@@ -34,16 +22,15 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager replacing deprecated @app.on_event."""
     create_tables()
-    logger.info("Database tables verified / created.")
-    logger.info("Application started in '%s' mode.", settings.app_env)
+    logger.info("Database initialized.")
+    logger.info("App running in '%s' mode.", settings.app_env)
     yield
 
 
 app = FastAPI(
     title="Curd Rice Business Studio – Enquiry Automation",
-    description="AI-powered business enquiry processing system",
+    description="Business enquiry automation and response platform",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -52,7 +39,7 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-# Routers – imported after app is defined to avoid circular imports
+# Routers
 from app.routers import enquiries, drafts, dashboard  # noqa: E402
 
 app.include_router(enquiries.router, prefix="/api", tags=["enquiries"])

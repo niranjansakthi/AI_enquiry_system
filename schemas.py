@@ -1,17 +1,4 @@
-"""
-schemas.py
-──────────
-All Pydantic models used for request validation, response serialisation,
-and AI output validation.
-
-Sections:
-  1. Enquiry input / output schemas
-  2. AI extraction schema (Module B output)
-  3. Lead score schema (Module C output)
-  4. Response draft schemas (Module D)
-  5. Pipeline result schema (Module E)
-  6. Dashboard / stats schemas
-"""
+"""Pydantic schemas for request validation and response serialization."""
 
 from __future__ import annotations
 
@@ -22,21 +9,11 @@ from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 1. Enquiry input / output
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Enquiry schemas
 VALID_SOURCES = {"web_form", "api", "csv_upload"}
 
 
 class EnquiryCreate(BaseModel):
-    """
-    Schema for submitting a new enquiry.
-
-    All customer-identifying fields are optional because enquiries often
-    arrive without complete contact information. Only the message is required.
-    """
     customer_name: Optional[str] = Field(None, max_length=200)
     company_name: Optional[str] = Field(None, max_length=200)
     email: Optional[EmailStr] = None
@@ -53,7 +30,6 @@ class EnquiryCreate(BaseModel):
     @field_validator("customer_name", "company_name", mode="before")
     @classmethod
     def strip_blank_strings(cls, v):
-        """Treat whitespace-only strings as None."""
         if isinstance(v, str):
             v = v.strip()
             return v if v else None
@@ -69,7 +45,6 @@ class EnquiryCreate(BaseModel):
 
 
 class EnquiryResponse(BaseModel):
-    """Full enquiry row returned from the database."""
     id: int
     customer_name: Optional[str]
     company_name: Optional[str]
@@ -86,7 +61,6 @@ class EnquiryResponse(BaseModel):
 
 
 class EnquiryListItem(BaseModel):
-    """Compact row used in the enquiry list view."""
     id: int
     customer_name: Optional[str]
     company_name: Optional[str]
@@ -95,7 +69,6 @@ class EnquiryListItem(BaseModel):
     processing_status: str
     created_at: datetime
     is_duplicate: bool = False
-    # Populated from the joined analysis row when available
     category: Optional[str] = None
     priority: Optional[str] = None
     lead_score: Optional[int] = None
@@ -103,10 +76,7 @@ class EnquiryListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 2. AI extraction schema — Module B output
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Extraction schemas
 VALID_CATEGORIES = {
     "Business Consulting",
     "AI Automation",
@@ -122,12 +92,6 @@ VALID_CATEGORIES = {
 
 
 class ExtractedInfo(BaseModel):
-    """
-    Structured output from the AI understanding service.
-
-    Every field that the AI could not determine must be null.
-    The confidence score must be between 0 and 1.
-    """
     category: str
     customer_name: Optional[str] = None
     company_name: Optional[str] = None
@@ -144,7 +108,6 @@ class ExtractedInfo(BaseModel):
     @classmethod
     def validate_category(cls, v: str) -> str:
         if v not in VALID_CATEGORIES:
-            # Accept closest match rather than hard-failing; fall back to Other
             return "Other"
         return v
 
@@ -164,21 +127,11 @@ class ExtractedInfo(BaseModel):
         return v
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. Lead score schema — Module C output
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Lead scoring schemas
 VALID_PRIORITIES = {"High", "Medium", "Low"}
 
 
 class LeadScore(BaseModel):
-    """
-    Output from the Python lead scoring function.
-
-    score    : 0–100, calculated from five weighted dimensions
-    priority : High (70–100) | Medium (40–69) | Low (0–39)
-    reasons  : human-readable explanation of each scoring decision
-    """
     score: int = Field(..., ge=0, le=100)
     priority: str
     reasons: list[str]
@@ -191,18 +144,13 @@ class LeadScore(BaseModel):
         return v
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 4. Response draft schemas — Module D
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Response draft schemas
 class DraftContent(BaseModel):
-    """Raw output from the AI response generation service."""
     subject: str = Field(..., min_length=3, max_length=500)
     body: str = Field(..., min_length=10)
 
 
 class DraftResponse(BaseModel):
-    """Full draft row returned from the database."""
     id: int
     enquiry_id: int
     subject: Optional[str]
@@ -227,7 +175,6 @@ class DraftResponse(BaseModel):
 
 
 class DraftUpdate(BaseModel):
-    """Request body for editing a draft."""
     subject: Optional[str] = Field(None, min_length=3, max_length=500)
     body: Optional[str] = Field(None, min_length=10)
 
@@ -238,12 +185,8 @@ class DraftUpdate(BaseModel):
         return self
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 5. Pipeline result — Module E output
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Analysis & pipeline result schemas
 class AnalysisResponse(BaseModel):
-    """Serialised EnquiryAnalysis row."""
     id: int
     enquiry_id: int
     category: Optional[str]
@@ -275,19 +218,12 @@ class AnalysisResponse(BaseModel):
 
 
 class EnquiryDetail(BaseModel):
-    """
-    Full enquiry record including analysis and draft.
-    Returned by GET /api/enquiries/{id} and the pipeline result.
-    """
     enquiry: EnquiryResponse
     analysis: Optional[AnalysisResponse] = None
     draft: Optional[DraftResponse] = None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 6. Dashboard / stats schemas
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Dashboard metrics schemas
 class PriorityStats(BaseModel):
     high: int = 0
     medium: int = 0
@@ -312,10 +248,7 @@ class DashboardStats(BaseModel):
     category_breakdown: dict[str, int]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. Generic API response wrappers
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Utility & feature schemas
 class SuccessResponse(BaseModel):
     success: bool = True
     message: str
@@ -327,10 +260,6 @@ class ErrorResponse(BaseModel):
     detail: Optional[str] = None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 8. Upgraded Feature Schemas
-# ─────────────────────────────────────────────────────────────────────────────
-
 class DuplicateCheckResult(BaseModel):
     is_duplicate: bool = False
     original_enquiry_id: Optional[int] = None
@@ -341,13 +270,13 @@ class DuplicateCheckResult(BaseModel):
 
 class ValidationIssue(BaseModel):
     code: str
-    severity: str  # "HIGH", "MEDIUM", "LOW"
+    severity: str
     description: str
 
 
 class SafetyValidationResult(BaseModel):
     is_safe: bool = True
-    status: str = "PASSED"  # "PASSED", "WARNING", "FAILED"
+    status: str = "PASSED"
     issues: list[ValidationIssue] = Field(default_factory=list)
     requires_human_review: bool = False
     explanation: Optional[str] = None

@@ -375,15 +375,5 @@ You can upload this directly on the `/upload-csv` page to verify classification 
 
 | Limitation | Detail |
 |:--- |:--- |
-| **No automatic DB migration** | New columns (`is_duplicate`, `duplicate_of_id`, `validation_status`, etc.) are only created on fresh databases. For an existing PostgreSQL database, run `alembic upgrade head` or drop and recreate tables. SQLite: delete `enquiries.db` and restart. |
-| **Docker untested locally** | The `Dockerfile` and `docker-compose.yml` follow best practices but could not be run locally (Docker not installed on the development machine). |
 | **Gmail URL size limit** | Very long email drafts may exceed browser URL limits for the Gmail compose link. The `mailto:` fallback handles this case. |
-| **No real email sending** | By design — the system only generates compose URLs. Actual sending is always a manual human action. |
-
----
-
-## AI Usage Disclosure & Engineering Practices
-
-- **AI Foundation Models**: Groq API with `openai/gpt-oss-120b` was utilized for structured text extraction and context-constrained email draft generation.
-- **Assisted Scaffolding**: Antigravity AI coding assistant assisted with boilerplate scaffolding, schema structures, and test cases.
-- **Human Engineering & Governance**: System architecture, database schema, deterministic scoring rules, business guardrails, review workflows, and error handling architectures were designed and verified to ensure full production readiness.
+| **No automated email dispatch** | By design — the system generates compose links so that an operations reviewer always confirms sending. |

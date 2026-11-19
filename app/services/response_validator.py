@@ -1,11 +1,4 @@
-"""
-app/services/response_validator.py
-Deterministic safety and business policy validator for AI-generated response drafts.
-
-Validates email drafts against Curd Rice Business Studio policy rules before
-marking them ready for human review. Does not call an LLM; all checks are
-deterministic pattern and keyword evaluations.
-"""
+"""Safety and business policy validator for response drafts."""
 
 import logging
 import re
@@ -15,7 +8,7 @@ from schemas import ExtractedInfo, SafetyValidationResult, ValidationIssue
 
 logger = logging.getLogger(__name__)
 
-# Currency & pricing patterns
+# Pricing detection patterns
 PRICING_PATTERNS = [
     r"(\$|€|£|₹|rs\.?|inr|usd)\s*\d+([,\.]\d+)?",
     r"\d+\s*(dollars|euros|pounds|rupees|inr|usd|lakhs?|crores?)\b",

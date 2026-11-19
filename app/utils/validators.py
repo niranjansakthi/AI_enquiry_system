@@ -1,9 +1,4 @@
-"""
-app/utils/validators.py
-───────────────────────
-Shared validation helpers used across schemas and CSV processing.
-These are plain functions — no classes, no abstractions.
-"""
+"""Validation and string sanitization helpers."""
 
 import re
 from typing import Optional

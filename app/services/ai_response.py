@@ -1,22 +1,4 @@
-"""
-app/services/ai_response.py
-────────────────────────────
-Module D: AI email draft generation.
-
-Single public function: generate_email_draft(enquiry, extracted_info, lead_score)
-
-Responsibilities:
-- Select the correct tone for the enquiry type (business, complaint, internship, partnership)
-- Build the prompt with business context and restrictions
-- Call Groq and parse subject + body from the response
-- Return DraftContent or raise AIResponseError
-
-Important restrictions enforced in the prompt:
-- Never invent pricing
-- Never guarantee delivery dates
-- Never make company commitments
-- Always remain a draft for human approval
-"""
+"""Contextual email response draft generator using Groq LLM."""
 
 import json
 import logging
@@ -36,10 +18,7 @@ class AIResponseError(Exception):
     pass
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Tone selection
-# ─────────────────────────────────────────────────────────────────────────────
-
+# Tone guidance
 TONE_BUSINESS = """
 Write a professional, warm and helpful reply to a business service enquiry.
 - Address the customer's specific requirement directly.
@@ -87,10 +66,7 @@ def _select_tone(category: str) -> str:
     return TONE_BUSINESS
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Prompt construction
-# ─────────────────────────────────────────────────────────────────────────────
-
+# System prompt builder
 def _build_system_prompt(category: str) -> str:
     tone = _select_tone(category)
     return f"""You are drafting a professional email response on behalf of Curd Rice Business Studio.

@@ -1,10 +1,4 @@
-"""
-app/services/qualification.py
-Deterministic smart lead qualification & clarification question generator.
-
-Analyzes available vs. missing enquiry dimensions and crafts targeted
-follow-up clarification questions without requiring an extra LLM call.
-"""
+"""Lead qualification and clarification question generator."""
 
 from typing import Optional
 
